@@ -11,3 +11,6 @@ add_test(string_filter test_str)
 
 add_executable(test_char test_char.cpp)
 add_test(char_filter test_char)
+
+add_executable(test_custom_struct test_custom_struct.cpp)
+add_test(custom_struct_filter test_custom_struct)
