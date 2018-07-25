@@ -8,6 +8,8 @@
 #include <random>
 #include <type_traits>
 
+#include "salted_type.hpp"
+
 #pragma once
 
 namespace detail
@@ -18,31 +20,11 @@ namespace detail
      *      f: A -> B
      * where A is the data type (size_t) and B is the result type (uint8_t).
      */
-    template<size_t hash_precision>
+    template<size_t hash_precision, typename data_t = size_t>
     struct hash_fn
     {
-            using data_t = size_t;
             using salt_t = size_t;
             using result_t = std::bitset<hash_precision>;
-
-            /**
-             * Conversion struct to salt data values before hashing.
-             */
-            struct hashable
-            {
-                data_t  dt;
-                salt_t  st;
-
-                /**
-                 * Combine a data value and a salt value (by XOR).
-                 *
-                 * \return data XOR salt
-                 */
-                size_t combined()
-                {
-                    return static_cast<size_t>(dt) ^ static_cast<size_t>(st);
-                }
-            };
 
         private:
             /**
@@ -55,16 +37,9 @@ namespace detail
             /**
              * std::hash used for hashing.
              */
-            std::hash<size_t> m_hash_fn;
+            std::hash<salted_type<data_t>> m_hash_fn;
 
         public:
-            /*
-             * Assert that the data types are uint.
-             */
-            static_assert(std::is_integral<data_t>::value
-                    && std::is_unsigned<data_t>::value, 
-                    "data type must be unsigned integer.");
-
             /*
              * Assert that the result type has less or equal to the amount of
              * digits of std::hash. This is essential as we could not guarantee
@@ -82,8 +57,8 @@ namespace detail
              */
             result_t operator()(data_t const& data) const
             {
-                hashable h {data, m_salt};
-                auto hash = m_hash_fn(h.combined());
+                salted_type<data_t> s {data, m_salt};
+                auto hash = m_hash_fn(s);
 
                 // properly reduce the size_t to a uint8_t
                 result_t result;

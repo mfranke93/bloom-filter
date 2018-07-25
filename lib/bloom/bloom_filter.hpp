@@ -8,7 +8,6 @@
 #include <random>
 #include <type_traits>
 
-#include "byte_conv.hpp"
 #include "hash_fn.hpp"
 
 #pragma once
@@ -72,7 +71,7 @@ class bloom_filter
             for (size_t i = 0; i < num_hash_functions; ++i)
             {
                 auto const salt { distribution(generator) };
-                m_hash_functions[i] = detail::hash_fn<hash_precision>(salt);
+                m_hash_functions[i] = detail::hash_fn<hash_precision, T>(salt);
             }
         };
 
@@ -90,10 +89,9 @@ class bloom_filter
         void add(T const& t)
         {
             // reduce to sizeof(size_t) bytes
-            size_t const val = detail::reduce_object(t);
             for (auto& fn : m_hash_functions)
             {
-                auto hash = fn(val);
+                auto hash = fn(t);
                 m_hash_hits.set(hash.to_ulong());
             }
         };
@@ -109,17 +107,15 @@ class bloom_filter
          */
         bool test(T const& t)
         {
-            // reduce bytes of t to one size_t
-            size_t const val = detail::reduce_object(t);
-
             // t may be member if the indices of all hashes of the value are
             // set in the bitset
             return std::all_of(
                     m_hash_functions.begin(),
                     m_hash_functions.end(),
-                    [&](detail::hash_fn<hash_precision>& fn)
+                    [&](auto& fn)
                     {
-                        return m_hash_hits.test(fn(val).to_ulong());
+                        auto hash = fn(t);
+                        return m_hash_hits.test(hash.to_ulong());
                     }
                 );
         };
@@ -129,7 +125,7 @@ class bloom_filter
          * The array of hash functions. All hash functions ideally should have
          * different salt values. This is currently not enforced.
          */
-        std::array<detail::hash_fn<hash_precision>, num_hash_functions>
+        std::array<detail::hash_fn<hash_precision, T>, num_hash_functions>
             m_hash_functions;
 
         /**
